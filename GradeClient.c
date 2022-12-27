@@ -1,12 +1,16 @@
 #include <GradeClient.h>
 
 
+void separate_strings(char* input, char* first, char* second, char* third);
+
+
 int main(int argc, char *argv[])
 {
     int sockfd, port, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     char buffer[BUFFER_SIZE];
+    char first[100], second[100], third[100];
 
     // Check command line arguments
     if (argc < 3) {

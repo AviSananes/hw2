@@ -12,10 +12,4 @@
 
 #define BUFFER_SIZE 256
 
-void login(int sockfd, char* id, char* password);
-void read_grade(int sockfd, char* id);
-void grade_list(int sockfd);
-void update_grade(int sockfd, char* id, char* grade);
-void logout(int sockfd, char* id);
-
 #endif

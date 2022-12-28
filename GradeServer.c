@@ -4,7 +4,7 @@
 int sockfd;
 
 
-int loadUsersFromFile(User * users, const char* filename) {
+int loadUsersFromFile(User * users, const char* filename, int user_type) {
     // Open the file for reading
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -24,6 +24,7 @@ int loadUsersFromFile(User * users, const char* filename) {
         // Store the ID and password in the data structure
         strcpy(users[num_users].id, id);
         strcpy(users[num_users].password, password);
+        users[num_users].userType = user_type;
         num_users++;
     }
 
@@ -52,8 +53,8 @@ int main(int argc, char* argv[]) {
 
   // Load the assistants and students from files
   Assistant assistants[MAX_LINE_LENGTH];
-  int num_assistants = loadUsersFromFile(assistants, ASSISTANTS_FILE);
-  int num_students = loadUsersFromFile(assistants, STUDENTS_FILE);
+  int num_assistants = loadUsersFromFile(assistants, ASSISTANTS_FILE, ASSISTANT_USER_TYPE);
+  int num_students = loadUsersFromFile(assistants, STUDENTS_FILE, STUDENT_USER_TYPE);
   int student_grades[num_students] = {0};
 
   // Print the data from the data structure - TEST PRINT! Remove after checking it works

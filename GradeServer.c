@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <pthread.h>
-
-#define NUM_THREADS 5
+#include <GradeServer.h>
 
 int* task_list;
 int task_list_size;
@@ -15,12 +6,37 @@ pthread_mutex_t task_list_mutex;
 pthread_cond_t task_list_cond;
 int sockfd;
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-void separate_strings(char* input, char* first, char* second, char* third);
-void* handle_connection(void* arg);
-void sigint_handler(int sig);
 
+int loadUsersFromFile(User * users, const char* filename) {
+    // Open the file for reading
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return 1;
+    }
 
+    int num_users = 0;  // number of users read from the file
+
+    // Read each line of the file
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, MAX_LINE_LENGTH, file) != NULL) {
+
+        char* id = strtok(line, ":");
+        char* password = strtok(NULL, ":");
+
+        // Store the ID and password in the data structure
+        strcpy(users[num_users].id, id);
+        strcpy(users[num_users].password, password);
+        num_users++;
+    }
+
+    fclose(file);
+    return num_users;
+}
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
@@ -33,7 +49,18 @@ int main(int argc, char* argv[]) {
   sa.sa_handler = sigint_handler;
   sigaction(SIGINT, &sa, NULL);
 
-  // Initialize the task list and synchronization variables
+  // Load the assistants and students from files
+  Assistant assistants[MAX_LINE_LENGTH];
+  int num_assistants = loadUsersFromFile(assistants, ASSISTANTS_FILE);
+  int num_students = loadUsersFromFile(assistants, STUDENTS_FILE);
+  int student_grades[num_students] = {0};
+  // Print the data from the data structure
+  for (int i = 0; i < num_users; i++) {
+     printf("ID: %s, Password: %s\n", assistants[i].id, assistants[i].password);
+  }
+
+
+    // Initialize the task list and synchronization variables
   task_list = malloc(sizeof(int) * NUM_THREADS);
   if (task_list == NULL) {
     perror("Error allocating memory for task list");

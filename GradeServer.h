@@ -16,9 +16,9 @@
 #define MAX_LINE_LENGTH 100  // maximum length of a line in files
 #define ID_LENGTH 10 // ID is a 9-digit string
 
-void separate_strings(char* input, char* first, char* second, char* third);
 void* handle_connection(void* arg);
 void sigint_handler(int sig);
+void add_task_to_queue(int connfd)
 
 typedef struct {
     char id[ID_LENGTH];

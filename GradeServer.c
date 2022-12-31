@@ -25,7 +25,7 @@ int loadUsersFromFile(User * users, const char* filename, int user_type) {
         strcpy(users[num_users].id, id);
         strcpy(users[num_users].password, password);
         users[num_users].userType = user_type;
-        if (user_type == STUDENT_USER_TYPE) {
+                if (user_type == STUDENT_USER_TYPE) {
             users[num_users].grade = 0;
         }
         num_users++;
@@ -55,10 +55,9 @@ int main(int argc, char* argv[]) {
   sigaction(SIGINT, &sa, NULL);
 
   // Load the assistants and students from files
-  User assistants[MAX_LINE_LENGTH];
-  User students[MAX_LINE_LENGTH];
+  assistants[MAX_LINE_LENGTH];
   int num_assistants = loadUsersFromFile(assistants, ASSISTANTS_FILE, ASSISTANT_USER_TYPE);
-  int num_students = loadUsersFromFile(students, STUDENTS_FILE, STUDENT_USER_TYPE);
+  int num_students = loadUsersFromFile(assistants, STUDENTS_FILE, STUDENT_USER_TYPE);
   int student_grades[num_students] = {0};
 
   // Print the data from the data structure - TEST PRINT! Remove after checking it works

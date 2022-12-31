@@ -8,7 +8,7 @@ void login(char * id, char * password, char * response) {
     for (int i = 0; i < num_users; i++) {
         if (strcmp(users[i].id, id)) {  // If the id matches
             if (strcmp(users[i].password, password) == 0) {  // If the password matches
-                snprintf(response, 255, "Welcome Student %s\n", users[i].id)
+                response = (users[i].user_type == STUDENT_USER_TYPE) ? "Welcome Student" : "Welcome TA";
                 // TODO - add locks
                 connected_user_id = users[i];
                 return;
@@ -18,12 +18,62 @@ void login(char * id, char * password, char * response) {
             }
         }
     }
-    response = "Wrong user information\n"
+    response = "Wrong user information\n";
 }
 
-void read_grade(char* id, char * response);
-void grade_list(char * response);
+void read_grade(char* id, char * response) {
+    // TODO - should this validation be in the client or server?
+    pthread_mutex_lock(&logged_in_user_mutex);
+    if (connected_user_type == ASSISTANT_USER_TYPE) {
+        if (id == NULL) {
+            printf("Missing argument")
+            pthread_mutex_unlock(&logged_in_user_mutex);
+            return
+        }
+    }
+    if (id != NULL && connected_user_type == STUDENT_USER_TYPE) {
+        printf("Action not allowed")
+        pthread_mutex_unlock(&logged_in_user_mutex);
+        return
+    }
+
+    char * requested_id = (connected_user_type == STUDENT_USER_TYPE ? connected_user_id : id)
+    pthread_mutex_unlock(&logged_in_user_mutex);
+    for (int i = 0; i < num_students; i++) {
+        if (strcmp(students[i].id, requested_id) == 0) {
+            response = students[i].grade;
+        }
+    }
+};
+
+// Comparison function to sort the array of students based on their id attribute
+int compare_students_by_id(const void * a, const void * b) {
+    User * ua = (Student*)a;
+    User * ub = (Student*)b;
+    return ua->id - ub->id;
+}
+
+void grade_list(char * response) {
+    qsort(students, num_students, sizeof(User), compare_students_by_id);
+    for (int i = 0; i < num_students; i++) {
+        // TODO - should this be print or somehow else?
+        printf("%s: %d\n", students[i].id, students[i].grade);
+    }
+};
+
 void update_grade(char* id, char* grade, char * response);
+    for (int i = 0; i < num_students; i++) {
+        if (strcmp(students[i].id, id) == 0) {
+            students[i].grade = atoi(grade);
+            return
+        }
+    }
+    // A student with a corresponding ID was not found - adding it to the list
+    User new_student = {id, "DefaultPass", STUDENT_USER_TYPE, atoi(grade)};
+    // TODO - append the new user to the existing ones
+}
+
+
 void logout(char * response);
 
 

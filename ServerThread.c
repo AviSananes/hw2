@@ -1,24 +1,55 @@
 #include <ServerThread.h>
 // TODO - make the users global
 
-User connected_user_id;
 
-void login(char * id, char * password, char * response) {
+typedef struct {
+  char id[10];
+  char password[265];
+  int connfd;
+  int is_ta;
+} Client;
+
+Client* clients;
+int num_clients;
+
+pthread_mutex_t clients_mutex;
+
+void init_clients() {
+  // Initialize the mutex lock
+  pthread_mutex_init(&clients_mutex, NULL);
+}
+
+
+
+char login(char * id, char * password, char * response) {
     // Iterate through the array of users (TODO - add both students and TA)
-    for (int i = 0; i < num_users; i++) {
-        if (strcmp(users[i].id, id)) {  // If the id matches
-            if (strcmp(users[i].password, password) == 0) {  // If the password matches
-                response = (users[i].user_type == STUDENT_USER_TYPE) ? "Welcome Student" : "Welcome TA";
-                // TODO - add locks
-                connected_user_id = users[i];
-                return;
-            } else {
-                response = "Incorrect password\n";
-                return;
-            }
+    
+    int logged_in = 0;
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < num_clients; i++) {
+    if (strcmp(id, clients[i].id) == 0) {
+        logged_in = 1;
+        break;
         }
     }
-    response = "Wrong user information\n";
+
+    if (logged_in) {
+    // User is already logged in, send an error message to the client
+        send_error(connfd, "User is already logged in");
+        return;
+    }
+
+    if (is_student == 1) {
+        response = "Welcome Student";
+
+    } else if (is_ta == 1)
+    {
+        response = "Welcome TA";
+    } else {
+        response = "Wrong user information\n";
+    }
+    pthread_mutex_unlock(&clients_mutex);
+    return response;
 }
 
 void read_grade(char* id, char * response) {
@@ -146,3 +177,59 @@ void* handle_connection(void* arg) {
 }
 
 #include "ServerThread.h"
+
+
+
+int is_student(char* id, char* password) {
+  // Open the file
+  FILE* fp = fopen("students.txt", "r");
+  if (fp == NULL) {
+    perror("Error opening file");
+    return 0;
+  }
+
+  // Read the file line by line
+  char buffer[256];
+  while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+    // Parse the ID and password from the line
+    char file_id[10];
+    char file_password[256];
+    sscanf(buffer, "%9[^:]:%255[^\n]", file_id, file_password);
+
+    // Check if the ID and password match the ones we are looking for
+    if (strcmp(id, file_id) == 0 && strcmp(password, file_password) == 0) {
+      fclose(fp);
+      return 1; // ID and password found, return 1
+    }
+  }
+
+  fclose(fp);
+  return 0; // ID and password not found, return 0
+}
+
+int is_ta(char* id, char* password) {
+  // Open the file
+  FILE* fp = fopen("assitants.txt", "r");
+  if (fp == NULL) {
+    perror("Error opening file");
+    return 0;
+  }
+
+  // Read the file line by line
+  char buffer[256];
+  while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+    // Parse the ID and password from the line
+    char file_id[10];
+    char file_password[256];
+    sscanf(buffer, "%9[^:]:%255[^\n]", file_id, file_password);
+
+    // Check if the ID and password match the ones we are looking for
+    if (strcmp(id, file_id) == 0 && strcmp(password, file_password) == 0) {
+      fclose(fp);
+      return 1; // ID and password found, return 1
+    }
+  }
+
+  fclose(fp);
+  return 0; // ID and password not found, return 0
+}

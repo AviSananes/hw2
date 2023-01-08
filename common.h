@@ -10,6 +10,6 @@
 #define ASSISTANT_USER_TYPE 1
 #define STUDENT_USER_TYPE 2
 
-void separate_strings(char* input, char* first, char* second, char* third)
+void separate_strings(char* input, char* first, char* second, char* third);
 
 #endif //HW2_COMMON_H

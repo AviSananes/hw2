@@ -1,7 +1,35 @@
-#include <GradeServer.h>
-#include <ServerThread.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <stdlib.h>
 
-int sockfd;
+#define NUM_THREADS 5
+#define MAX_TASKS 1000
+
+
+int client_sock;
+
+pthread_t threads[NUM_THREADS];
+
+typedef struct task {
+    char message[2000];
+} task_t;
+
+task_t tasks[MAX_TASKS];
+int num_tasks = 0;
+
+pthread_mutex_t task_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t task_cond = PTHREAD_COND_INITIALIZER;
+
+void sigint_handler(int signum);
+void add_task(task_t task);
+task_t get_task(void);
+void delete_task(task_t task);
+void process_task(task_t task);
+void *process_tasks(void *arg);
 
 
 int loadUsersFromFile(User * users, const char* filename, int user_type) {
@@ -25,7 +53,7 @@ int loadUsersFromFile(User * users, const char* filename, int user_type) {
         strcpy(users[num_users].id, id);
         strcpy(users[num_users].password, password);
         users[num_users].userType = user_type;
-                if (user_type == STUDENT_USER_TYPE) {
+        if (user_type == STUDENT_USER_TYPE) {
             users[num_users].grade = 0;
         }
         num_users++;
@@ -35,112 +63,190 @@ int loadUsersFromFile(User * users, const char* filename, int user_type) {
     return num_users;
 }
 
-void add_task_to_queue(int connfd) {
-    // Add the task (connection) to the task list
-    pthread_mutex_lock(&task_list_mutex);
-    task_list[task_list_size++] = connfd;
-    pthread_cond_signal(&task_list_cond);
-    pthread_mutex_unlock(&task_list_mutex);
-}
 
-int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    fprintf(stderr, "Usage: %s <port>\n", argv[0]);
-    return 1;
-  }
 
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = sigint_handler;
-  sigaction(SIGINT, &sa, NULL);
-
-  // Load the assistants and students from files
-  assistants[MAX_LINE_LENGTH];
-  int num_assistants = loadUsersFromFile(assistants, ASSISTANTS_FILE, ASSISTANT_USER_TYPE);
-  int num_students = loadUsersFromFile(assistants, STUDENTS_FILE, STUDENT_USER_TYPE);
-  int student_grades[num_students] = {0};
-
-  // Print the data from the data structure - TEST PRINT! Remove after checking it works
-  for (int i = 0; i < num_users; i++) {
-     printf("ID: %s, Password: %s\n", assistants[i].id, assistants[i].password);
-  }
-
-  // Init task list and locks
-  task_list_size = 0;
-  pthread_mutex_init(&task_list_mutex, NULL);
-  pthread_cond_init(&task_list_cond, NULL);
-
-  // Get the port number from the command line argument
-  int port = atoi(argv[1]);
-
-  // Create a socket
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
-    perror("Error opening socket");
-    return 1;
-  }
-
-  // Set up the server address
-  struct sockaddr_in serv_addr;
-  memset(&serv_addr, 0, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_addr.s_addr = INADDR_ANY;
-  serv_addr.sin_port = htons(port);
-
-  // Bind the socket to the server address
-  if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
-    perror("Error binding socket");
-    return 1;
-  }
-
-  // Listen for incoming connections
-  listen(sockfd, 5);
-
-  // Create a pool of worker threads
-  pthread_t threads[NUM_THREADS];
-  for (int i = 0; i < NUM_THREADS; i++) {
-    if (pthread_create(&threads[i], NULL, handle_connection, NULL) != 0) {
-      perror("Error creating thread");
-      return 1;
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: %s port_number\n", argv[0]);
+        exit(1);
     }
-  }
 
-  // Infinite loop - accept user's connection and adding task for every new connection
-  while (1) {
-    // Accept a connection
-    struct sockaddr_in cli_addr;
-    socklen_t cli_addr_len = sizeof(cli_addr);
-    int connfd = accept(sockfd, (struct sockaddr*) &cli_addr, &cli_addr_len);
-    if (connfd < 0) {
-      perror("Error accepting connection");
-      return 1;
+    int port_number = atoi(argv[1]);
+
+    signal(SIGINT, sigint_handler);
+    int socket_desc, c, read_size;
+    struct sockaddr_in server, client;
+    char client_message[2000];
+
+    // Create socket
+    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_desc == -1)
+    {
+        printf("Could not create socket");
     }
-      add_task_to_queue(conndf);
-  }
-  // TODO - this part never gets called because of the while loop before!
-  // Wait for the worker threads to finish
-  for (int i = 0; i < NUM_THREADS; i++) {
-    pthread_join(threads[i], NULL);
-  }
+    puts("Socket created");
 
-  // Close the socket
-  close(sockfd);
+    // Prepare the sockaddr_in structure
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(port_number);
 
-  // Free memory and destroy synchronization variables
-  free(task_list);
-  pthread_mutex_destroy(&task_list_mutex);
-  pthread_cond_destroy(&task_list_cond);
+    // Bind
+    if (bind(socket_desc, (struct sockaddr *)&server, sizeof(server)) < 0)
+    {
+        // print the error message
+        perror("bind failed. Error");
+        return 1;
+    }
+    puts("bind done");
 
-  return 0;
+    // Listen
+    listen(socket_desc, 3);
+
+    for (int i = 0; i < NUM_THREADS; i++)
+        pthread_create(&threads[i], NULL, process_tasks, NULL);
+
+    // Accept and incoming connection
+    puts("Waiting for incoming connections...");
+    c = sizeof(struct sockaddr_in);
+    // accept connection from an incoming client
+    client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t *)&c);
+    if (client_sock < 0)
+    {
+        perror("accept failed");
+        return 1;
+    }
+    puts("Connection accepted");
+    
+    // Receive a message from client and add it to the task list
+    while (1)
+    {
+      while ((read_size = recv(client_sock, client_message, 2000, 0)) > 0)
+      {
+        // Add the message to the task list
+        task_t task;
+        strcpy(task.message, client_message);
+        add_task(task);
+        // Clear the client_message buffer
+        memset(client_message, 0, 2000);
+        read_size = 0;
+      }
+      if (read_size == -1)
+      {
+        perror("recv failed");
+      }
+    }
+    for (int i = 0; i < NUM_THREADS; i++)
+      pthread_join(threads[i], NULL);
+
+    return 0;
 }
 
 
-void sigint_handler(int sig) {
-  printf("Received SIGINT, shutting down...\n");
 
-  // Close the socket and exit
-  close(sockfd);
-  exit(0);
+void sigint_handler(int signum)
+{
+    printf("Received SIGINT\n");
+    // Close the socket and exit
+    close(sockfd);
+    exit(1);
 }
 
+void add_task(task_t task)
+{
+    pthread_mutex_lock(&task_mutex);
 
+    // Add the task to the list
+    tasks[num_tasks++] = task;
+
+    pthread_cond_signal(&task_cond);
+    pthread_mutex_unlock(&task_mutex);
+}
+
+task_t get_task(void)
+{
+    pthread_mutex_lock(&task_mutex);
+
+    while (num_tasks == 0)
+        pthread_cond_wait(&task_cond, &task_mutex);
+
+    // Get the next task from the list
+    // TODO - I think this always takes the last task (LIFO) should this be FIFO?
+    task_t task = tasks[--num_tasks];
+
+    pthread_mutex_unlock(&task_mutex);
+    return task;
+}
+
+void delete_task(task_t task)
+{
+    pthread_mutex_lock(&task_mutex);
+
+    for (int i = 0; i < num_tasks; i++)
+    {
+        if (strcmp(tasks[i].message, task.message) == 0)
+        {
+            // Shift all tasks after the specified index one position to the left
+            for (int j = i; j < num_tasks - 1; j++)
+                tasks[j] = tasks[j + 1];
+
+            num_tasks--;
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&task_mutex);
+}
+
+void process_task(task_t task)
+{
+    // Do something with the task
+    char* command[2000];
+    strcpy(command, task.message);
+
+    switch (command) {
+        // TODO - should we validate no additional arguments?
+
+        case "Login":
+            login(arg1, arg2, response);
+            break;
+
+        case "ReadGrade":
+            read_grade(arg1, response);
+            break;
+
+        case "GradeList":
+            grade_list(response);
+            break;
+
+        case "UpdateGrade":
+            update_greade(arg1, arg2, response);
+            break;
+
+        case "Logout":
+            logout(response);
+            break;
+
+        default:
+            response = "Wrong Input";
+    }
+
+
+
+    send(client_sock, task.message, strlen(task.message), 0);
+}
+
+void *process_tasks(void *arg)
+{
+    while (1)
+    { 
+        task_t task = get_task();
+        process_task(task);
+        delete_task(task);
+        memset(&task, 0, sizeof(task));
+    }
+
+    return NULL;
+}

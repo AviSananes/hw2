@@ -1,4 +1,4 @@
-#include <GradeClient.h>
+#include "GradeClient.h"
 
 char * connected_user_id = NO_USER_CONNECTED_CODE;
 int connected_user_type = NO_USER_TYPE;
@@ -12,6 +12,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in serv_addr;
     struct hostent *server;
     char buffer[BUFFER_SIZE];
+    char message[BUFFER_SIZE];
     char first[100], second[100], third[100];
 
     // Check command line arguments
@@ -61,30 +62,24 @@ int main(int argc, char *argv[])
 
     // Command line interpreter process
     if (pid == 0) {
-        // Close the write end of the pipe
-        close(pipefd[1]);
+
+        close(pipefd[0]);
         
-        while(1){ 
+        while(1) { 
             printf("> ");
             fgets(buffer, BUFFER_SIZE, stdin);
-            if (strcmp(buffer, 'Exit') == 0) {
-                exit(1);
-            }
-            write(pipefd[0], buffer, strlen(buffer));
+            send(sockfd, buffer, strlen(buffer), 0);
+            recv(sockfd, message, BUFFER_SIZE, 0);
+            write(pipefd[1], message, strlen(message));
+            sleep(1);
         }
     } else {
-        close(pipefd[0]);
-        char response[BUFFER_SIZE];
-        while (1){
-            int bytes_read = read(pipefd[1], response, BUFFER_SIZE);
-            if (bytes_read == 0) {
-                // Child process has closed the pipe
-                break;
-                } 
-            // Send the command to the server
-            write(sockfd, response, strlen(response));
-            read(sockfd, buffer, BUFFER_SIZE);
-            printf(buffer);
+        while(1){
+            close(pipefd[1]);
+            char response[BUFFER_SIZE];
+            int n = read(pipefd[0], response, sizeof(response));
+            response[n] = '\0';
+            printf("%s\n", response);
         }
     }
     
@@ -98,8 +93,7 @@ int check_if_user_already_connected() {
     // Check if a user is already logged in from this client
     int returnValue = (connected_user_id == NO_USER_CONNECTED_CODE) ? NO_USER_CONNECTED_CODE : USER_CONNECTED_CODE;
     pthread_mutex_unlock(&logged_in_user_mutex);
-    return returnValue
-
+    return returnValue;
 }
 
 void modify_connected_user(char * id, int user_type) {
@@ -114,7 +108,7 @@ void login(int sockfd, char* id, char* password) {
     // Check if user already connected
     int isUserConnected = check_if_user_already_connected();
     if (isUserConnected == USER_CONNECTED_CODE) {
-        printf("There is a user already logged in.")
+        printf("There is a user already logged in.");
         return;
     }
 
@@ -149,21 +143,21 @@ void login(int sockfd, char* id, char* password) {
 void read_grade(int sockfd, char* id) {
     // Verify user connected
     if (check_if_user_already_connected() == NO_USER_CONNECTED_CODE) {
-        printf("Not logged in")
-        retrurn
+        printf("Not logged in");
+        return;
     }
 
     // TODO - should this validation be in the client or server?
     pthread_mutex_lock(&logged_in_user_mutex);
     if (id == NULL && connected_user_type == ASSISTANT_USER_TYPE) {
-        printf("Missing argument")
+        printf("Missing argument");
         pthread_mutex_unlock(&logged_in_user_mutex);
-        return
+        return;
     }
     if (id != NULL && connected_user_type == STUDENT_USER_TYPE) {
-        printf("Action not allowed")
+        printf("Action not allowed");
         pthread_mutex_unlock(&logged_in_user_mutex);
-        return
+        return;
     }
     pthread_mutex_unlock(&logged_in_user_mutex);
 

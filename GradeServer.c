@@ -32,6 +32,39 @@ void process_task(task_t task);
 void *process_tasks(void *arg);
 
 
+int loadUsersFromFile(User * users, const char* filename, int user_type) {
+    // Open the file for reading
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return 1;
+    }
+
+    int num_users = 0;  // number of users read from the file
+
+    // Read each line of the file
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, MAX_LINE_LENGTH, file) != NULL) {
+
+        char* id = strtok(line, ":");
+        char* password = strtok(NULL, ":");
+
+        // Store the ID and password in the data structure
+        strcpy(users[num_users].id, id);
+        strcpy(users[num_users].password, password);
+        users[num_users].userType = user_type;
+        if (user_type == STUDENT_USER_TYPE) {
+            users[num_users].grade = 0;
+        }
+        num_users++;
+    }
+
+    fclose(file);
+    return num_users;
+}
+
+
+
 int main(int argc, char *argv[])
 {
     if (argc < 2)
@@ -116,6 +149,8 @@ int main(int argc, char *argv[])
 void sigint_handler(int signum)
 {
     printf("Received SIGINT\n");
+    // Close the socket and exit
+    close(sockfd);
     exit(1);
 }
 
@@ -138,6 +173,7 @@ task_t get_task(void)
         pthread_cond_wait(&task_cond, &task_mutex);
 
     // Get the next task from the list
+    // TODO - I think this always takes the last task (LIFO) should this be FIFO?
     task_t task = tasks[--num_tasks];
 
     pthread_mutex_unlock(&task_mutex);

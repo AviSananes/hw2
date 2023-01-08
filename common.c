@@ -1,8 +1,4 @@
-//
-// Created by Miki Segall on 28/12/2022.
-//
-
-#include <common.h>
+#include "common.h"
 
 
 void separate_strings(char* input, char* first, char* second, char* third) {

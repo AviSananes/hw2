@@ -5,6 +5,8 @@
 #ifndef HW2_COMMON_H
 #define HW2_COMMON_H
 
+#include <string.h>
+
 // TODO - should we use enum?
 #define NO_USER_TYPE 0
 #define ASSISTANT_USER_TYPE 1

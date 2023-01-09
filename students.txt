@@ -1,2 +1,1 @@
-987654321:student1
-147258369:student2
+leonid:badpass

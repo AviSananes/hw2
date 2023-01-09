@@ -1,2 +1,2 @@
-313562191:MikiDaQueen
-123456789:AviDeBoss
+Avi:pass1
+Miki:pass2
